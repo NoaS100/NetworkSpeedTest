@@ -2,6 +2,7 @@ import socket
 import struct
 import threading
 import time
+from typing import Tuple
 
 UDP_PAYLOAD_SIZE = 512
 BROADCAST_INTERVAL = 1
@@ -48,6 +49,9 @@ def main():
     tcp_thread.start()
     udp_thread.start()
     broadcast_thread.start()
+    tcp_thread.join()
+    udp_thread.join()
+    broadcast_thread.join()
 
 
 def start_broadcasting_offer(udp_port: int, tcp_port: int):
@@ -172,35 +176,27 @@ def handle_tcp_client(client_socket: socket.socket):
         print("DBG: Connection closed.")  # TODO: delete
 
 
-def handle_client_udp(client_address: str, message: bytes, udp_socket: socket.socket):
+def handle_client_udp(client_address: Tuple[str, int], message: bytes):
     """Handle a single UDP client in a separate thread."""
     try:
         header_size = struct.calcsize(HEADER_FORMAT)
         message_type = parse_header(message[:header_size])
         if message_type != REQUEST_MESSAGE_TYPE:
             raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
-        file_size = parse_request(message_type[header_size:])
+        file_size = parse_request(message[header_size:])
 
         print(f"DBG: Handling UDP client {client_address}, received message: {message}")
 
-        send_udp_payloads(target_address=client_address, udp_socket=udp_socket, file_size=file_size,
-                          payload_size=UDP_PAYLOAD_SIZE)
+        send_udp_payloads(target_address=client_address, file_size=file_size, payload_size=UDP_PAYLOAD_SIZE)
     except Exception as e:
         print(f"An error occurred with UDP client {client_address}: {e}")
     finally:
         print(f"DBG: Finished handling UDP client {client_address}")
 
 
-def send_udp_payloads(target_address, udp_socket, file_size, payload_size):
-    """
-    Send UDP packets as specified in the payload message format.
+def send_udp_payloads(target_address: Tuple[str, int], file_size: int, payload_size: int):
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    Args:
-        target_address (str): Target IP address.
-        udp_socket (socket.socket): UDP socket.
-        file_size (int): Total size of the data to send (in bytes).
-        payload_size (int): Size of the payload per packet (in bytes).
-    """
     # Calculate the total number of segments
     total_segments = (file_size + payload_size - 1) // payload_size  # Ceiling division
 
@@ -245,12 +241,12 @@ def handle_udp_requests(host: str, port: int):
         try:
             # Receive a message from the client
             message, client_address = udp_socket.recvfrom(1024)  # Buffer size of 1024 bytes
-            print(f"DBG: Received message from {client_address}: {message.decode()}")
+            print(f"DBG: Received message from {client_address}: {message}")
 
             # Create a new thread to handle the client
             client_thread = threading.Thread(
                 target=handle_client_udp,
-                args=(client_address, message, udp_socket),
+                args=(client_address, message),
                 daemon=True  # Daemon thread so it exits when the main thread exits
             )
             client_thread.start()
