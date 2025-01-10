@@ -5,12 +5,12 @@ import time
 from typing import Tuple
 
 from hackathon.protocol import build_payload, build_offer_message, REQUEST_MESSAGE_TYPE, parse_header, HEADER_FORMAT, \
-    parse_request, MESSAGES_FORMATS
+    parse_request, MESSAGES_FORMATS, BROADCAST_PORT
 
 UDP_PAYLOAD_SIZE = 512
 BROADCAST_INTERVAL = 1
 
-BROADCAST_ADDR = ("255.255.255.255", 12345)
+BROADCAST_ADDR = ("255.255.255.255", BROADCAST_PORT)
 
 
 def main():

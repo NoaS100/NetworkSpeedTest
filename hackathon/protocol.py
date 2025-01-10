@@ -1,5 +1,7 @@
 import struct
+from typing import Tuple
 
+BROADCAST_PORT = 12345
 MAGIC_COOKIE = 0xabcddcba.to_bytes(4, byteorder="big")
 HEADER_FORMAT = "4sB"  # Protocol (4 bytes) + Message Type (1 byte)
 OFFER_MESSAGE_TYPE = 0x2
@@ -26,6 +28,15 @@ def parse_request(data: bytes) -> int:
 def build_offer_message(tcp_port, udp_port):
     message = struct.pack(MESSAGES_FORMATS[OFFER_MESSAGE_TYPE], udp_port, tcp_port)
     return build_header(OFFER_MESSAGE_TYPE) + message
+
+
+def parse_offer_message(data: bytes) -> Tuple[int, int]:
+    header_size = struct.calcsize(HEADER_FORMAT)
+    message_type = parse_header(data[:header_size])
+    if message_type != OFFER_MESSAGE_TYPE:
+        raise ValueError(f"Wrong message type. Got {message_type} expected {OFFER_MESSAGE_TYPE}")
+    udp_port, tcp_port = struct.unpack(MESSAGES_FORMATS[message_type], data[header_size:])
+    return udp_port, tcp_port
 
 
 def build_payload(total_segments: int, segment_number: int, payload_data: bytes) -> bytes:
