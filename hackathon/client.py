@@ -1,6 +1,5 @@
 import concurrent.futures
 import socket
-import threading
 from datetime import datetime, timedelta
 from typing import Tuple
 
@@ -9,10 +8,16 @@ from hackathon.protocol import BROADCAST_PORT, parse_offer_message, build_reques
 UDP_TIMEOUT = 1
 
 
-def main():
+def main() -> None:
+    """
+    The main entry point of the client program. It handles input from the user,
+    listens for server offers, and manages the transfer process using threads.
+    """
     file_size = request_positive_integer("Enter the file size to download (positive integer): ", allow_zero=False)
-    udp_connections_amount = request_positive_integer("Enter the number of UDP connections (zero or positive integer): ")
-    tcp_connections_amount = request_positive_integer("Enter the number of TCP connections (zero or positive integer): ")
+    udp_connections_amount = request_positive_integer(
+        "Enter the number of UDP connections (zero or positive integer): ")
+    tcp_connections_amount = request_positive_integer(
+        "Enter the number of TCP connections (zero or positive integer): ")
 
     while True:
         server_address, udp_port, tcp_port = get_offer_message()
@@ -36,9 +41,8 @@ def main():
             for future in concurrent.futures.as_completed(tcp_futures):
                 try:
                     duration, total_data_received = future.result()
-                    speed = total_data_received * 8 / duration  # Calculate speed in bits/second
-                    print(
-                        f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
+                    speed = total_data_received * 8 / duration
+                    print(f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
                 except Exception as e:
                     print(f"An error occurred in a TCP thread: {e}")
 
@@ -46,7 +50,7 @@ def main():
             for future in concurrent.futures.as_completed(udp_futures):
                 try:
                     duration, total_data_received, total_segments_received, total_segments = future.result()
-                    speed = total_data_received * 8 / duration  # Calculate speed in bits/second
+                    speed = total_data_received * 8 / duration
                     percentage_received = (total_segments_received / total_segments) * 100 if total_segments > 0 else 0
                     print(
                         f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
@@ -58,11 +62,11 @@ def main():
 
 def request_positive_integer(prompt: str, allow_zero: bool = True) -> int:
     """
-    Generic function to request a positive integer or zero from the user.
+    Requests a positive integer (or zero if allowed) from the user.
 
     :param prompt: The message to display when asking for input.
     :param allow_zero: Whether zero is allowed as a valid input.
-    :return: A valid positive integer (or zero if allowed).
+    :return: A valid positive integer or zero.
     """
     while True:
         try:
@@ -79,13 +83,18 @@ def request_positive_integer(prompt: str, allow_zero: bool = True) -> int:
 
 
 def get_offer_message() -> Tuple[str, int, int]:
+    """
+    Listens for offer messages from the server and parses a valid offer.
+
+    :return: A tuple containing the server address, UDP port, and TCP port.
+    """
     print("Client started, listening for offer requests...")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     sock.bind(("", BROADCAST_PORT))
     received_valid_offer_message = False
     while not received_valid_offer_message:
-        message, client_address = sock.recvfrom(1024)  # Buffer size of 1024 bytes
+        message, client_address = sock.recvfrom(1024)
         try:
             udp_port, tcp_port = parse_offer_message(message)
             received_valid_offer_message = True
@@ -95,6 +104,15 @@ def get_offer_message() -> Tuple[str, int, int]:
 
 
 def measure_udp_download(host: str, port: int, file_size: int) -> Tuple[float, int, int, int]:
+    """
+    Measures the performance of a UDP download.
+
+    :param host: The server's address.
+    :param port: The UDP port to connect to.
+    :param file_size: The size of the file to download.
+    :return: A tuple containing the duration of the transfer, total data received,
+             total segments received, and the total number of segments expected.
+    """
     request_message = build_request_message(file_size)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -118,7 +136,6 @@ def measure_udp_download(host: str, port: int, file_size: int) -> Tuple[float, i
                 break
         end_time = datetime.now()
 
-        # Subtracting the timeout.
         duration_seconds = (end_time - start_time - timedelta(seconds=UDP_TIMEOUT)).total_seconds()
         return duration_seconds, total_data_received, total_segments_received, total_segments
     finally:
@@ -126,6 +143,14 @@ def measure_udp_download(host: str, port: int, file_size: int) -> Tuple[float, i
 
 
 def measure_tcp_download(host: str, port: int, file_size: int) -> Tuple[float, int]:
+    """
+    Measures the performance of a TCP download.
+
+    :param host: The server's address.
+    :param port: The TCP port to connect to.
+    :param file_size: The size of the file to download.
+    :return: A tuple containing the duration of the transfer and the total data received.
+    """
     request_message = build_request_message(file_size)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -139,7 +164,6 @@ def measure_tcp_download(host: str, port: int, file_size: int) -> Tuple[float, i
         print(f"DBG: Got a response of length {len(response)}")
         end_time = datetime.now()
 
-        # Using total_seconds to get a float (using seconds might cause getting a result of 0).
         duration_seconds = (end_time - start_time).total_seconds()
         return duration_seconds, len(response)
     finally:
