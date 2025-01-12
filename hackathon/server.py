@@ -6,27 +6,27 @@ from typing import Tuple
 from hackathon.protocol import REQUEST_MESSAGE_TYPE, BROADCAST_PORT, build_message, OFFER_MESSAGE_TYPE, parse_message, \
     PAYLOAD_MESSAGE_TYPE
 
-UDP_PAYLOAD_SIZE = 512
-BROADCAST_INTERVAL = 1
+UDP_PAYLOAD_SIZE: int = 512  # Maximum size for UDP payloads
+BROADCAST_INTERVAL: int = 1  # Interval in seconds for broadcasting messages
+BROADCAST_ADDR: Tuple[str, int] = ("255.255.255.255", BROADCAST_PORT)  # Broadcast address and port
 
-BROADCAST_ADDR = ("255.255.255.255", BROADCAST_PORT)
 
-
-def main():
+def main() -> None:
+    """
+    The main entry point for the server program. Starts the TCP and UDP servers
+    and broadcasts offer messages.
+    """
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     print(f"Server started, listening on IP address {ip_address}")
 
-    # TODO: get random free ports:
-    udp_port = 8080
-    tcp_port = 8081
+    # Static ports (could be replaced with dynamically assigned ports if needed)
+    udp_port: int = 8080
+    tcp_port: int = 8081
 
     broadcast_thread = threading.Thread(
         target=start_broadcasting_offer,
-        kwargs=dict(
-            udp_port=udp_port,
-            tcp_port=tcp_port
-        ),
+        kwargs=dict(udp_port=udp_port, tcp_port=tcp_port),
         daemon=True
     )
     tcp_thread = threading.Thread(
@@ -47,8 +47,14 @@ def main():
     broadcast_thread.join()
 
 
-def start_broadcasting_offer(udp_port: int, tcp_port: int):
-    offer_message = build_message(OFFER_MESSAGE_TYPE, udp_port, tcp_port)
+def start_broadcasting_offer(udp_port: int, tcp_port: int) -> None:
+    """
+    Periodically broadcasts an offer message over UDP.
+
+    :param udp_port: The UDP port offered to clients.
+    :param tcp_port: The TCP port offered to clients.
+    """
+    offer_message: bytes = build_message(OFFER_MESSAGE_TYPE, udp_port, tcp_port)
     while True:
         send_broadcast(offer_message)
         time.sleep(BROADCAST_INTERVAL)
@@ -73,8 +79,8 @@ def handle_tcp_requests(host: str, port: int) -> None:
     """
     Starts a TCP server to handle client requests.
 
-    :param host: The host address.
-    :param port: The TCP port.
+    :param host: The host address to bind the server.
+    :param port: The TCP port to listen on.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
@@ -105,7 +111,7 @@ def handle_tcp_client(client_socket: socket.socket) -> None:
     """
     with client_socket:
         try:
-            message = client_socket.recv(1024)
+            message: bytes = client_socket.recv(1024)
             if message[-1] != ord("\n"):
                 raise ValueError("Message is too large or improperly terminated with '\\n'.")
 
@@ -113,26 +119,29 @@ def handle_tcp_client(client_socket: socket.socket) -> None:
             if message_type != REQUEST_MESSAGE_TYPE:
                 raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
 
-            file_size = body[0]
+            file_size: int = body[0]
             print(f"DBG: Received filesize of {file_size} bytes")
 
-            response = "a" * file_size
+            response: str = "a" * file_size
             client_socket.sendall(response.encode())
             print(f"DBG: Sent response of length: {len(response)}")
         except Exception as e:
             print(f"An error occurred: {e}")
 
 
-def handle_client_udp(client_address: Tuple[str, int], message: bytes):
-    """Handle a single UDP client in a separate thread."""
+def handle_client_udp(client_address: Tuple[str, int], message: bytes) -> None:
+    """
+    Handles a single UDP client in a separate thread.
+
+    :param client_address: The address of the client.
+    :param message: The message received from the client.
+    """
     try:
         message_type, body = parse_message(message)
-
         if message_type != REQUEST_MESSAGE_TYPE:
             raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
 
-        file_size = body[0]
-
+        file_size: int = body[0]
         print(f"DBG: Handling UDP client {client_address}, received message: {message}")
 
         send_udp_payloads(target_address=client_address, file_size=file_size, payload_size=UDP_PAYLOAD_SIZE)
@@ -151,16 +160,16 @@ def send_udp_payloads(target_address: Tuple[str, int], file_size: int, payload_s
     :param payload_size: The size of each UDP payload.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-        total_segments = (file_size + payload_size - 1) // payload_size
+        total_segments: int = (file_size + payload_size - 1) // payload_size
 
         try:
             for segment_number in range(total_segments):
                 start_byte = segment_number * payload_size
                 remaining_bytes = file_size - start_byte
                 current_payload_size = min(payload_size, remaining_bytes)
-                payload_data = b'a' * current_payload_size
+                payload_data: bytes = b'a' * current_payload_size
 
-                payload_message = build_message(
+                payload_message: bytes = build_message(
                     PAYLOAD_MESSAGE_TYPE,
                     total_segments,
                     segment_number,
@@ -177,8 +186,8 @@ def handle_udp_requests(host: str, port: int) -> None:
     """
     Starts a UDP server to handle client requests.
 
-    :param host: The host address.
-    :param port: The UDP port.
+    :param host: The host address to bind the server.
+    :param port: The UDP port to listen on.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((host, port))
