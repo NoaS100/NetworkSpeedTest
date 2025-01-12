@@ -39,6 +39,17 @@ def parse_offer_message(data: bytes) -> Tuple[int, int]:
     return udp_port, tcp_port
 
 
+def parse_payload_message(data: bytes) -> Tuple[int, int, bytes]:
+    header_size = struct.calcsize(HEADER_FORMAT)
+    message_type = parse_header(data[:header_size])
+    if message_type != PAYLOAD_MESSAGE_TYPE:
+        raise ValueError(f"Wrong message type. Got {message_type} expected {PAYLOAD_MESSAGE_TYPE}")
+    fixed_fields_size = struct.calcsize(MESSAGES_FORMATS[message_type])
+    total_segments, current_segment = struct.unpack(MESSAGES_FORMATS[message_type], data[header_size:header_size + fixed_fields_size])
+    payload = data[header_size + fixed_fields_size:]
+    return total_segments, current_segment, payload
+
+
 def build_payload(total_segments: int, segment_number: int, payload_data: bytes) -> bytes:
     message = struct.pack(MESSAGES_FORMATS[PAYLOAD_MESSAGE_TYPE], total_segments, segment_number) + payload_data
     return build_header(PAYLOAD_MESSAGE_TYPE) + message
@@ -47,3 +58,8 @@ def build_payload(total_segments: int, segment_number: int, payload_data: bytes)
 def build_header(message_type: int) -> bytes:
     return struct.pack(HEADER_FORMAT, MAGIC_COOKIE, message_type)
 
+
+def build_request_message(file_size: int) -> bytes:
+    header = build_header(REQUEST_MESSAGE_TYPE)
+    message = struct.pack(MESSAGES_FORMATS[REQUEST_MESSAGE_TYPE], file_size)
+    return header + message

@@ -134,7 +134,7 @@ def handle_tcp_client(client_socket: socket.socket):
         # Send a response back to the client
         response = "a" * file_size
         client_socket.sendall(response.encode())
-        print(f"DBG: Sent response: {response}")  # TODO: delete
+        print(f"DBG: Sent response of length: {len(response)}")  # TODO: delete
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
