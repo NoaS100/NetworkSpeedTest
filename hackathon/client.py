@@ -10,9 +10,9 @@ UDP_TIMEOUT = 1
 
 
 def main():
-    file_size = request_file_size()
-    udp_connections_amount = request_udp_connections_amount()
-    tcp_connections_amount = request_tcp_connections_amount()
+    file_size = request_positive_integer("Enter the file size to download (positive integer): ", allow_zero=False)
+    udp_connections_amount = request_positive_integer("Enter the number of UDP connections (zero or positive integer): ")
+    tcp_connections_amount = request_positive_integer("Enter the number of TCP connections (zero or positive integer): ")
 
     while True:
         server_address, udp_port, tcp_port = get_offer_message()
@@ -56,17 +56,26 @@ def main():
         print("All transfers complete, listening to offer requests")
 
 
+def request_positive_integer(prompt: str, allow_zero: bool = True) -> int:
+    """
+    Generic function to request a positive integer or zero from the user.
 
-def request_file_size() -> int:
-    return 10 * 1024 * 1024  # TODO: Change this to input
-
-
-def request_udp_connections_amount() -> int:
-    return 2  # TODO: Change this to input
-
-
-def request_tcp_connections_amount() -> int:
-    return 1  # TODO: Change this to input
+    :param prompt: The message to display when asking for input.
+    :param allow_zero: Whether zero is allowed as a valid input.
+    :return: A valid positive integer (or zero if allowed).
+    """
+    while True:
+        try:
+            value = int(input(prompt))
+            if value < 0 or (not allow_zero and value == 0):
+                if not allow_zero and value == 0:
+                    print("Value must be a positive integer (greater than zero). Please try again.")
+                else:
+                    print("Value must be zero or a positive integer. Please try again.")
+            else:
+                return value
+        except ValueError:
+            print("Invalid input. Please enter a numeric value.")
 
 
 def get_offer_message() -> Tuple[str, int, int]:
