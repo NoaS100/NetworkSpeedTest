@@ -66,8 +66,7 @@ def process_udp_results(udp_futures: list) -> None:
         try:
             duration, total_data_received, segments_received_count, expected_segments_count = future.result()
             speed = total_data_received * 8 / duration
-            percentage_received = (
-                                              segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
+            percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
             print(
                 f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
         except Exception as e:
@@ -103,13 +102,14 @@ def listen_for_offer() -> Tuple[str, int, int]:
     :return: A tuple containing the server address, UDP port, and TCP port.
     """
     print("Client started, listening for offer requests...")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("", BROADCAST_PORT))
 
-    while True:
-        offer_message, (server_ip, server_port) = sock.recvfrom(1024)
-        if is_valid_offer(offer_message):
-            return (server_ip, ) + parse_offer_message(offer_message)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(("", BROADCAST_PORT))
+
+        while True:
+            offer_message, (server_ip, server_port) = sock.recvfrom(1024)
+            if is_valid_offer(offer_message):
+                return (server_ip, ) + parse_offer_message(offer_message)
 
 
 def is_valid_offer(offer_message: bytes) -> bool:
@@ -139,16 +139,16 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
     """
     request_message = build_request_message(download_size)
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("", 0))
-    sock.settimeout(UDP_TIMEOUT)
-    try:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(("", 0))
+        sock.settimeout(UDP_TIMEOUT)
         sock.sendto(request_message, (server_ip, server_port))
-
-        start_time = datetime.now()
         segments_received_count = 0
         expected_segments_count = 1
         total_data_received = 0
+
+        start_time = datetime.now()
+
         while True:
             try:
                 message, server_ip = sock.recvfrom(1024)
@@ -158,12 +158,11 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
             except socket.timeout:
                 print("DBG: Got timeout message - finishing...")
                 break
+
         end_time = datetime.now()
 
         duration_seconds = (end_time - start_time - timedelta(seconds=UDP_TIMEOUT)).total_seconds()
         return duration_seconds, total_data_received, segments_received_count, expected_segments_count
-    finally:
-        sock.close()
 
 
 def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -> Tuple[float, int]:
@@ -177,21 +176,19 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
     """
     request_message = build_request_message(download_size)
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    sock.connect((server_ip, server_port))
-    try:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((server_ip, server_port))
         sock.sendall(request_message + "\n".encode())
 
         start_time = datetime.now()
+
         response = sock.recv(download_size)
-        print(f"DBG: Got a response of length {len(response)}")
+
         end_time = datetime.now()
 
+        print(f"DBG: Got a response of length {len(response)}")
         duration_seconds = (end_time - start_time).total_seconds()
         return duration_seconds, len(response)
-    finally:
-        sock.close()
 
 
 if __name__ == '__main__':
