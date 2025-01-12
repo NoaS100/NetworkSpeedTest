@@ -14,43 +14,46 @@ def main():
     udp_connections_amount = request_udp_connections_amount()
     tcp_connections_amount = request_tcp_connections_amount()
 
-    server_address, udp_port, tcp_port = get_offer_message()
-    print(f"Receive offer from {server_address}")
+    while True:
+        server_address, udp_port, tcp_port = get_offer_message()
+        print(f"Receive offer from {server_address}")
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        udp_futures = [
-            executor.submit(
-                measure_udp_download,
-                host=server_address, port=udp_port, file_size=file_size
-            ) for _ in range(udp_connections_amount)
-        ]
-        tcp_futures = [
-            executor.submit(
-                measure_tcp_download,
-                host=server_address, port=tcp_port, file_size=file_size
-            ) for _ in range(tcp_connections_amount)
-        ]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            udp_futures = [
+                executor.submit(
+                    measure_udp_download,
+                    host=server_address, port=udp_port, file_size=file_size
+                ) for _ in range(udp_connections_amount)
+            ]
+            tcp_futures = [
+                executor.submit(
+                    measure_tcp_download,
+                    host=server_address, port=tcp_port, file_size=file_size
+                ) for _ in range(tcp_connections_amount)
+            ]
 
-        # Process TCP results
-        for future in concurrent.futures.as_completed(tcp_futures):
-            try:
-                duration, total_data_received = future.result()
-                speed = total_data_received * 8 / duration  # Calculate speed in bits/second
-                print(
-                    f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
-            except Exception as e:
-                print(f"An error occurred in a TCP thread: {e}")
+            # Process TCP results
+            for future in concurrent.futures.as_completed(tcp_futures):
+                try:
+                    duration, total_data_received = future.result()
+                    speed = total_data_received * 8 / duration  # Calculate speed in bits/second
+                    print(
+                        f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
+                except Exception as e:
+                    print(f"An error occurred in a TCP thread: {e}")
 
-        # Process UDP results
-        for future in concurrent.futures.as_completed(udp_futures):
-            try:
-                duration, total_data_received, total_segments_received, total_segments = future.result()
-                speed = total_data_received * 8 / duration  # Calculate speed in bits/second
-                percentage_received = (total_segments_received / total_segments) * 100 if total_segments > 0 else 0
-                print(
-                    f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
-            except Exception as e:
-                print(f"An error occurred in a UDP thread: {e}")
+            # Process UDP results
+            for future in concurrent.futures.as_completed(udp_futures):
+                try:
+                    duration, total_data_received, total_segments_received, total_segments = future.result()
+                    speed = total_data_received * 8 / duration  # Calculate speed in bits/second
+                    percentage_received = (total_segments_received / total_segments) * 100 if total_segments > 0 else 0
+                    print(
+                        f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
+                except Exception as e:
+                    print(f"An error occurred in a UDP thread: {e}")
+
+        print("All transfers complete, listening to offer requests")
 
 
 
