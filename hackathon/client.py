@@ -98,24 +98,33 @@ def get_positive_integer(message: str, include_zero: bool = True) -> int:
 
 def listen_for_offer() -> Tuple[str, int, int]:
     """
-    Listens for offer messages from the server and parses a valid offer.
+    Listens for and returns a valid offer message.
 
     :return: A tuple containing the server address, UDP port, and TCP port.
     """
     print("Client started, listening for offer requests...")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     sock.bind(("", BROADCAST_PORT))
-    valid_offer_received = False
-    while not valid_offer_received:
-        offer_message, server_address = sock.recvfrom(1024)
-        try:
-            udp_port, tcp_port = parse_offer_message(offer_message)
-            valid_offer_received = True
-        except Exception:
-            print("DBG: Got invalid offer message. Keep trying...")
-    server_ip, server_port = server_address
-    return server_ip, udp_port, tcp_port
+
+    while True:
+        offer_message, (server_ip, server_port) = sock.recvfrom(1024)
+        if is_valid_offer(offer_message):
+            return (server_ip, ) + parse_offer_message(offer_message)
+
+
+def is_valid_offer(offer_message: bytes) -> bool:
+    """
+    Validates an offer message.
+
+    :param offer_message: The raw offer message.
+    :return: True if the offer is valid, False otherwise.
+    """
+    try:
+        parse_offer_message(offer_message)
+        return True
+    except Exception:
+        print("DBG: Got invalid offer message. Keep trying...")
+        return False
 
 
 def perform_udp_download(server_ip: str, server_port: int, download_size: int) -> Tuple[float, int, int, int]:
