@@ -5,7 +5,10 @@ from typing import Tuple
 
 from hackathon.protocol import BROADCAST_PORT, parse_offer_message, build_request_message, parse_payload_message
 
-UDP_TIMEOUT = 1
+UDP_TIMEOUT = 1 # Timeout used for finishing udp download
+BUFFER_SIZE = 1024  # Socket buffer size for receiving data
+TCP_MESSAGE_TERMINATOR = "\n".encode()  # Terminator for TCP request messages
+BITS_IN_BYTE = 8  # Conversion factor for bytes to bits
 
 
 def main() -> None:
@@ -50,7 +53,7 @@ def process_tcp_results(tcp_futures: list) -> None:
     for future in concurrent.futures.as_completed(tcp_futures):
         try:
             duration, total_data_received = future.result()
-            speed = total_data_received * 8 / duration
+            speed = total_data_received * BITS_IN_BYTE / duration
             print(f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
         except Exception as e:
             print(f"An error occurred in a TCP task: {e}")
@@ -65,7 +68,7 @@ def process_udp_results(udp_futures: list) -> None:
     for future in concurrent.futures.as_completed(udp_futures):
         try:
             duration, total_data_received, segments_received_count, expected_segments_count = future.result()
-            speed = total_data_received * 8 / duration
+            speed = total_data_received * BITS_IN_BYTE / duration
             percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
             print(
                 f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
@@ -84,11 +87,8 @@ def get_positive_integer(message: str, include_zero: bool = True) -> int:
     while True:
         try:
             value = int(input(message))
-            if value < 0 or (not include_zero and value == 0):
-                if not include_zero and value == 0:
-                    print("Value must be a positive integer (greater than zero). Please try again.")
-                else:
-                    print("Value must be zero or a positive integer. Please try again.")
+            if value < 0 or (value == 0 and not include_zero):
+                print(f"Value must be {'zero or ' if include_zero else ''}a positive integer. Please try again.")
             else:
                 return value
         except ValueError:
@@ -151,7 +151,7 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
 
         while True:
             try:
-                message, server_ip = sock.recvfrom(1024)
+                message = sock.recv(BUFFER_SIZE)
                 expected_segments_count, current_segment, payload = parse_payload_message(message)
                 segments_received_count += 1
                 total_data_received += len(payload)
@@ -178,7 +178,7 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((server_ip, server_port))
-        sock.sendall(request_message + "\n".encode())
+        sock.sendall(request_message + TCP_MESSAGE_TERMINATOR)
 
         start_time = datetime.now()
 
