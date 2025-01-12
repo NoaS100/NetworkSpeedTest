@@ -75,7 +75,10 @@ def build_message(message_type: int, *args: Any, payload: bytes = b"") -> bytes:
     if message_type not in MESSAGES_FORMATS:
         raise ValueError(f"Unsupported message type: {message_type}")
 
-    body = struct.pack(MESSAGES_FORMATS[message_type], *args) + payload
+    try:
+        body = struct.pack(MESSAGES_FORMATS[message_type], *args) + payload
+    except struct.error as e:
+        raise ValueError(f"Failed to pack values {args} with type '{message_type}': {e}")
     return build_header(message_type) + body
 
 
