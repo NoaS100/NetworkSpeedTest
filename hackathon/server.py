@@ -1,11 +1,10 @@
 import socket
-import struct
 import threading
 import time
 from typing import Tuple
 
-from hackathon.protocol import build_payload, build_offer_message, REQUEST_MESSAGE_TYPE, parse_header, HEADER_FORMAT, \
-    parse_request, MESSAGES_FORMATS, BROADCAST_PORT
+from hackathon.protocol import REQUEST_MESSAGE_TYPE, BROADCAST_PORT, build_message, OFFER_MESSAGE_TYPE, parse_message, \
+    PAYLOAD_MESSAGE_TYPE
 
 UDP_PAYLOAD_SIZE = 512
 BROADCAST_INTERVAL = 1
@@ -18,8 +17,10 @@ def main():
     ip_address = socket.gethostbyname(hostname)
     print(f"Server started, listening on IP address {ip_address}")
 
+    # TODO: get random free ports:
     udp_port = 8080
     tcp_port = 8081
+
     broadcast_thread = threading.Thread(
         target=start_broadcasting_offer,
         kwargs=dict(
@@ -47,8 +48,7 @@ def main():
 
 
 def start_broadcasting_offer(udp_port: int, tcp_port: int):
-    offer_message = build_offer_message(tcp_port, udp_port)
-    print(offer_message)  # TODO: Remove
+    offer_message = build_message(OFFER_MESSAGE_TYPE, udp_port, tcp_port)
     while True:
         send_broadcast(offer_message)
         time.sleep(BROADCAST_INTERVAL)
@@ -102,32 +102,16 @@ def handle_tcp_requests(host: str, port: int):
 def handle_tcp_client(client_socket: socket.socket):
     try:
         # Receive data from the client
-        header_size = struct.calcsize(HEADER_FORMAT)
-        header_data = client_socket.recv(header_size)
-        if not header_data:
-            raise ValueError("No data received, closing connection.")
+        message = client_socket.recv(1024)
+        if message[-1] != ord("\n"):
+            raise ValueError("Message is too large or improperly terminated with '\\n'.")
 
-        if len(header_data) < header_size:
-            raise ValueError("Got incomplete header")
-
-        message_type = parse_header(header_data)
+        message_type, body = parse_message(message)
 
         if message_type != REQUEST_MESSAGE_TYPE:
             raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
 
-        message_size = struct.calcsize(MESSAGES_FORMATS[message_type])
-        message_data = client_socket.recv(message_size + 1)
-        if not message_data:
-            raise ValueError("No message data received, closing connection.")
-
-        if len(message_data) < message_size + 1:
-            raise ValueError("Incomplete message data received.")
-
-        # Check if the last byte is '\n'
-        if message_data[-1] != ord("\n"):
-            raise ValueError("Message is too large or improperly terminated with '\\n'.")
-
-        file_size = parse_request(message_data[:-1])
+        file_size = body[0]
 
         print(f"DBG: Received filesize of {file_size} bytes")  # TODO: delete
 
@@ -146,11 +130,12 @@ def handle_tcp_client(client_socket: socket.socket):
 def handle_client_udp(client_address: Tuple[str, int], message: bytes):
     """Handle a single UDP client in a separate thread."""
     try:
-        header_size = struct.calcsize(HEADER_FORMAT)
-        message_type = parse_header(message[:header_size])
+        message_type, body = parse_message(message)
+
         if message_type != REQUEST_MESSAGE_TYPE:
             raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
-        file_size = parse_request(message[header_size:])
+
+        file_size = body[0]
 
         print(f"DBG: Handling UDP client {client_address}, received message: {message}")
 
@@ -179,10 +164,11 @@ def send_udp_payloads(target_address: Tuple[str, int], file_size: int, payload_s
             payload_data = b'a' * current_payload_size
 
             # Build the UDP payload message
-            payload_message = build_payload(
+            payload_message = build_message(
+                PAYLOAD_MESSAGE_TYPE,
                 total_segments,
                 segment_number,
-                payload_data
+                payload=payload_data
             )
 
             # Send the packet

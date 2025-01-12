@@ -3,7 +3,7 @@ import socket
 from datetime import datetime, timedelta
 from typing import Tuple
 
-from hackathon.protocol import BROADCAST_PORT, parse_offer_message, build_request_message, parse_payload_message
+from hackathon.protocol import BROADCAST_PORT, parse_message, OFFER_MESSAGE_TYPE, build_message, REQUEST_MESSAGE_TYPE
 
 UDP_TIMEOUT = 1 # Timeout used for finishing udp download
 BUFFER_SIZE = 1024  # Socket buffer size for receiving data
@@ -109,7 +109,8 @@ def listen_for_offer() -> Tuple[str, int, int]:
         while True:
             offer_message, (server_ip, server_port) = sock.recvfrom(1024)
             if is_valid_offer(offer_message):
-                return (server_ip, ) + parse_offer_message(offer_message)
+                message_type, (udp_port, tcp_port) = parse_message(offer_message)
+                return server_ip, udp_port, tcp_port
 
 
 def is_valid_offer(offer_message: bytes) -> bool:
@@ -120,10 +121,10 @@ def is_valid_offer(offer_message: bytes) -> bool:
     :return: True if the offer is valid, False otherwise.
     """
     try:
-        parse_offer_message(offer_message)
-        return True
-    except Exception:
-        print("DBG: Got invalid offer message. Keep trying...")
+        message_type, *_ = parse_message(offer_message)
+        return message_type == OFFER_MESSAGE_TYPE
+    except ValueError as e:
+        print(f"DBG: Got invalid offer message - {e}. Keep trying...")
         return False
 
 
@@ -137,7 +138,7 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
     :return: A tuple containing the duration of the transfer, total data received,
              total segments received, and the total number of segments expected.
     """
-    request_message = build_request_message(download_size)
+    request_message = build_message(REQUEST_MESSAGE_TYPE, download_size)
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind(("", 0))
@@ -152,7 +153,7 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
         while True:
             try:
                 message = sock.recv(BUFFER_SIZE)
-                expected_segments_count, current_segment, payload = parse_payload_message(message)
+                message_type, (expected_segments_count, current_segment, payload) = parse_message(message)
                 segments_received_count += 1
                 total_data_received += len(payload)
             except socket.timeout:
@@ -174,11 +175,11 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
     :param download_size: The size of the file to download.
     :return: A tuple containing the duration of the transfer and the total data received.
     """
-    request_message = build_request_message(download_size)
+    request_message = build_message(REQUEST_MESSAGE_TYPE, download_size, payload=TCP_MESSAGE_TERMINATOR)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((server_ip, server_port))
-        sock.sendall(request_message + TCP_MESSAGE_TERMINATOR)
+        sock.sendall(request_message)
 
         start_time = datetime.now()
 
