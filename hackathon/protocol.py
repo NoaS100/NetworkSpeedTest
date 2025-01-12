@@ -1,10 +1,12 @@
 import struct
 from typing import Any, Tuple, Union
 
-BROADCAST_PORT = 12345
-MAGIC_COOKIE = 0xabcddcba.to_bytes(4, byteorder="big")
+BROADCAST_PORT = 12345  # TODO: Ask about the broadcast port.
+
+MAGIC_COOKIE = 0xabcddcba.to_bytes(4, byteorder="big")  # TODO: Ask about big indian vs small indian (relevant to the other types as well).
 HEADER_FORMAT = "4sB"  # Protocol (4 bytes) + Message Type (1 byte)
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
 OFFER_MESSAGE_TYPE = 0x2
 REQUEST_MESSAGE_TYPE = 0x3
 PAYLOAD_MESSAGE_TYPE = 0x4
