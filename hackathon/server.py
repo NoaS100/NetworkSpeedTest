@@ -10,7 +10,8 @@ from hackathon.protocol import BROADCAST_PORT, build_message, OFFER_MESSAGE_TYPE
 DEFAULT_UDP_PAYLOAD_SIZE: int = 512  # Maximum size for UDP payloads
 BROADCAST_INTERVAL: int = 1  # Interval in seconds for broadcasting messages
 BROADCAST_ADDR: Tuple[str, int] = ("255.255.255.255", BROADCAST_PORT)  # Broadcast address and port
-
+UDP_SERVER_PORT: int = 8080
+TCP_SERVER_PORT: int = 8081
 
 def main() -> None:
     """
@@ -21,22 +22,19 @@ def main() -> None:
     ip_address = socket.gethostbyname(hostname)
     print_in_color(f"Server started, listening on IP address {ip_address}", color=COLORS.GREEN)
 
-    udp_server_port: int = 8080
-    tcp_server_port: int = 8081
-
     broadcast_thread = threading.Thread(
         target=broadcast_offer_messages,
-        kwargs=dict(udp_port=udp_server_port, tcp_port=tcp_server_port),
+        kwargs=dict(udp_port=UDP_SERVER_PORT, tcp_port=TCP_SERVER_PORT),
         daemon=True
     )
     tcp_thread = threading.Thread(
         target=start_tcp_server,
-        kwargs=dict(server_ip=ip_address, server_port=tcp_server_port),
+        kwargs=dict(server_ip=ip_address, server_port=TCP_SERVER_PORT),
         daemon=True
     )
     udp_thread = threading.Thread(
         target=start_udp_server,
-        kwargs=dict(server_ip=ip_address, server_port=udp_server_port),
+        kwargs=dict(server_ip=ip_address, server_port=UDP_SERVER_PORT),
         daemon=True
     )
 
