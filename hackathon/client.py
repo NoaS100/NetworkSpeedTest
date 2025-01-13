@@ -3,9 +3,10 @@ import socket
 from datetime import datetime, timedelta
 from typing import Tuple
 
+from hackathon.color_printing import print_in_color, COLORS, print_error
 from hackathon.protocol import BROADCAST_PORT, parse_message, OFFER_MESSAGE_TYPE, build_message, REQUEST_MESSAGE_TYPE
 
-UDP_TIMEOUT = 1 # Timeout used for finishing udp download
+UDP_TIMEOUT = 1  # Timeout used for finishing udp download
 BUFFER_SIZE = 1024  # Socket buffer size for receiving data
 TCP_MESSAGE_TERMINATOR = "\n".encode()  # Terminator for TCP request messages
 BITS_IN_BYTE = 8  # Conversion factor for bytes to bits
@@ -22,7 +23,7 @@ def main() -> None:
 
     while True:
         server_ip, udp_port, tcp_port = listen_for_offer()
-        print(f"Receive offer from {server_ip}")
+        print_in_color(f"Receive offer from {server_ip}", color=COLORS.GREEN)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             udp_futures = [
@@ -41,7 +42,7 @@ def main() -> None:
             process_tcp_results(tcp_futures)
             process_udp_results(udp_futures)
 
-        print("All transfers complete, listening to offer requests")
+        print_in_color("All transfers complete, listening to offer requests", color=COLORS.GREEN)
 
 
 def process_tcp_results(tcp_futures: list) -> None:
@@ -54,9 +55,12 @@ def process_tcp_results(tcp_futures: list) -> None:
         try:
             duration, total_data_received = future.result()
             speed = total_data_received * BITS_IN_BYTE / duration
-            print(f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second")
+            print_in_color(
+                f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second",
+                color=COLORS.GREEN
+            )
         except Exception as e:
-            print(f"An error occurred in a TCP task #{index}: {e}")
+            print_error(f"An error occurred in a TCP task #{index}: {e}")
 
 
 def process_udp_results(udp_futures: list) -> None:
@@ -70,10 +74,12 @@ def process_udp_results(udp_futures: list) -> None:
             duration, total_data_received, segments_received_count, expected_segments_count = future.result()
             speed = total_data_received * BITS_IN_BYTE / duration
             percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
-            print(
-                f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
+            print_in_color(
+                f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%",
+                color=COLORS.GREEN
+            )
         except Exception as e:
-            print(f"An error occurred in a UDP task: {e}")
+            print_error(f"An error occurred in a UDP task: {e}")
 
 
 def get_positive_integer(message: str, include_zero: bool = True) -> int:
@@ -88,11 +94,11 @@ def get_positive_integer(message: str, include_zero: bool = True) -> int:
         try:
             value = int(input(message))
             if value < 0 or (value == 0 and not include_zero):
-                print(f"Value must be {'zero or ' if include_zero else ''}a positive integer. Please try again.")
+                print_error(f"Value must be {'zero or ' if include_zero else ''}a positive integer. Please try again.")
             else:
                 return value
         except ValueError:
-            print("Invalid input. Please enter a numeric value.")
+            print_error("Invalid input. Please enter a numeric value.")
 
 
 def listen_for_offer() -> Tuple[str, int, int]:
@@ -101,7 +107,7 @@ def listen_for_offer() -> Tuple[str, int, int]:
 
     :return: A tuple containing the server address, UDP port, and TCP port.
     """
-    print("Client started, listening for offer requests...")
+    print_in_color("Client started, listening for offer requests...", color=COLORS.GREEN)
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind(("", BROADCAST_PORT))
@@ -124,7 +130,7 @@ def is_valid_offer(offer_message: bytes) -> bool:
         message_type, *_ = parse_message(offer_message)
         return message_type == OFFER_MESSAGE_TYPE
     except ValueError as e:
-        print(f"DBG: Got invalid offer message - {e}. Keep trying...")
+        print_in_color(f"DBG: Got invalid offer message - {e}. Keep trying...", color=COLORS.LIGHTYELLOW_EX)
         return False
 
 
@@ -157,7 +163,7 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
                 segments_received_count += 1
                 total_data_received += len(payload)
             except socket.timeout:
-                print("DBG: Got timeout message - finishing...")
+                print_in_color("DBG: Got timeout message - finishing...", color=COLORS.LIGHTYELLOW_EX)
                 break
 
         end_time = datetime.now()
@@ -187,7 +193,7 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
 
         end_time = datetime.now()
 
-        print(f"DBG: Got a response of length {len(response)}")
+        print_in_color(f"DBG: Got a response of length {len(response)}", color=COLORS.LIGHTYELLOW_EX)
         duration_seconds = (end_time - start_time).total_seconds()
         return duration_seconds, len(response)
 

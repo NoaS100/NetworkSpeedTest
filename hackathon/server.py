@@ -3,6 +3,7 @@ import threading
 import time
 from typing import Tuple
 
+from hackathon.color_printing import print_in_color, COLORS, print_error
 from hackathon.protocol import BROADCAST_PORT, build_message, OFFER_MESSAGE_TYPE, PAYLOAD_MESSAGE_TYPE, \
     parse_request_message
 
@@ -18,9 +19,8 @@ def main() -> None:
     """
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
-    print(f"Server started, listening on IP address {ip_address}")
+    print_in_color(f"Server started, listening on IP address {ip_address}", color=COLORS.GREEN)
 
-    # Static ports (could be replaced with dynamically assigned ports if needed)
     udp_server_port: int = 8080
     tcp_server_port: int = 8081
 
@@ -72,9 +72,9 @@ def send_broadcast_message(message: bytes) -> None:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
             sock.sendto(message, BROADCAST_ADDR)
-            print("DBG: Sent broadcast message...")
+            print_in_color("DBG: Sent broadcast message...", color=COLORS.LIGHTYELLOW_EX)
         except Exception as e:
-            print(f"Error sending broadcast message: {e}")
+            print_error(f"Error sending broadcast message: {e}")
 
 
 def start_tcp_server(server_ip: str, server_port: int) -> None:
@@ -87,16 +87,19 @@ def start_tcp_server(server_ip: str, server_port: int) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((server_ip, server_port))
         server_socket.listen(5)
-        print(f"DBG: Server listening on {server_ip}:{server_port}")
+        print_in_color(f"DBG: Server listening on {server_ip}:{server_port}", color=COLORS.LIGHTYELLOW_EX)
 
         while True:
-            client_socket, client_address = server_socket.accept()
-            print(f"DBG: Connection from {client_address}")
-            threading.Thread(
-                target=process_tcp_client_request,
-                args=(client_socket,),
-                daemon=True
-            ).start()
+            try:
+                client_socket, client_address = server_socket.accept()
+                print_in_color(f"DBG: Connection from {client_address}", color=COLORS.LIGHTYELLOW_EX)
+                threading.Thread(
+                    target=process_tcp_client_request,
+                    args=(client_socket,),
+                    daemon=True
+                ).start()
+            except Exception as e:
+                print_error(f"Error in TCP server: {e}")
 
 
 def process_tcp_client_request(client_socket: socket.socket) -> None:
@@ -106,16 +109,19 @@ def process_tcp_client_request(client_socket: socket.socket) -> None:
     :param client_socket: The client's socket.
     """
     with client_socket:
-        message: bytes = client_socket.recv(1024)
-        if message[-1] != ord("\n"):
-            raise ValueError("Message is too large or improperly terminated with '\\n'.")
+        try:
+            message: bytes = client_socket.recv(1024)
+            if message[-1] != ord("\n"):
+                raise ValueError("Message is too large or improperly terminated with '\\n'.")
 
-        file_size = parse_request_message(message)
-        print(f"DBG: Received filesize of {file_size} bytes")
+            file_size = parse_request_message(message)
+            print_in_color(f"DBG: Received filesize of {file_size} bytes", color=COLORS.LIGHTYELLOW_EX)
 
-        response: str = "a" * file_size
-        client_socket.sendall(response.encode())
-        print(f"DBG: Sent response of length: {len(response)}")
+            response: str = "a" * file_size
+            client_socket.sendall(response.encode())
+            print_in_color(f"DBG: Sent response of length: {len(response)}", color=COLORS.LIGHTYELLOW_EX)
+        except Exception as e:
+            print_error(f"Error processing TCP client request: {e}")
 
 
 def process_udp_client_request(client_address: Tuple[str, int], message: bytes) -> None:
@@ -125,9 +131,12 @@ def process_udp_client_request(client_address: Tuple[str, int], message: bytes) 
     :param client_address: The address of the client.
     :param message: The message received from the client.
     """
-    file_size: int = parse_request_message(message)
-    print(f"DBG: Handling UDP client {client_address}, received message: {message}")
-    send_udp_file_segments(target_address=client_address, file_size=file_size, payload_size=DEFAULT_UDP_PAYLOAD_SIZE)
+    try:
+        file_size: int = parse_request_message(message)
+        print_in_color(f"DBG: Handling UDP client {client_address}, received message: {message}", color=COLORS.LIGHTYELLOW_EX)
+        send_udp_file_segments(target_address=client_address, file_size=file_size, payload_size=DEFAULT_UDP_PAYLOAD_SIZE)
+    except Exception as e:
+        print_error(f"Error processing UDP client {client_address}: {e}")
 
 
 def send_udp_file_segments(target_address: Tuple[str, int], file_size: int, payload_size: int) -> None:
@@ -155,7 +164,7 @@ def send_udp_file_segments(target_address: Tuple[str, int], file_size: int, payl
             )
 
             udp_socket.sendto(payload_message, target_address)
-            print(f"DBG: Sent segment {segment_number + 1}/{total_segments}, size: {current_payload_size} bytes")
+            print_in_color(f"DBG: Sent segment {segment_number + 1}/{total_segments}, size: {current_payload_size} bytes", color=COLORS.LIGHTYELLOW_EX)
 
 
 def start_udp_server(server_ip: str, server_port: int) -> None:
@@ -167,17 +176,20 @@ def start_udp_server(server_ip: str, server_port: int) -> None:
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((server_ip, server_port))
-        print(f"DBG: UDP server listening on {server_ip}:{server_port}")
+        print_in_color(f"DBG: UDP server listening on {server_ip}:{server_port}", color=COLORS.LIGHTYELLOW_EX)
 
         while True:
-            message, client_address = udp_socket.recvfrom(1024)
-            print(f"DBG: Received message from {client_address}: {message}")
+            try:
+                message, client_address = udp_socket.recvfrom(1024)
+                print_in_color(f"DBG: Received message from {client_address}: {message}", color=COLORS.LIGHTYELLOW_EX)
 
-            threading.Thread(
-                target=process_udp_client_request,
-                args=(client_address, message),
-                daemon=True
-            ).start()
+                threading.Thread(
+                    target=process_udp_client_request,
+                    args=(client_address, message),
+                    daemon=True
+                ).start()
+            except Exception as e:
+                print_error(f"Error in UDP server: {e}")
 
 
 if __name__ == '__main__':
