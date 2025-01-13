@@ -58,7 +58,7 @@ def process_tcp_results(tcp_futures: list) -> None:
             speed = total_data_received * BITS_IN_BYTE / duration
             print_in_color(
                 f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {humanize_speed(speed)}",
-                color=COLORS.GREEN
+                color=COLORS.LIGHTBLACK_EX
             )
             all_speeds.append(speed)
         except Exception as e:
@@ -91,7 +91,7 @@ def process_udp_results(udp_futures: list) -> None:
             percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
             print_in_color(
                 f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {humanize_speed(speed)}, percentage of packets received: {percentage_received}%",
-                color=COLORS.GREEN
+                color=COLORS.LIGHTBLACK_EX
             )
 
             all_speeds.append(speed)
@@ -137,7 +137,7 @@ def humanize_speed(bits_per_second: float) -> str:
     :param bits_per_second: The speed in bits/second.
     :return: A string representing the human-readable speed.
     """
-    units = ["bits/s", "Kib/s", "Mib/s", "Gib/s", "Tib/s", "Pib/s"]
+    units = ["bits/s", "Kib/s", "Mib/s", "Gib/s", "Tib/s", "Pib/s"]  # 2^0 , 2^10..
     scale = 1024  # Using base 2 (Kibi)
     for unit in units:
         if bits_per_second < scale:
@@ -175,7 +175,7 @@ def is_valid_offer(offer_message: bytes) -> bool:
         message_type, *_ = parse_message(offer_message)
         return message_type == OFFER_MESSAGE_TYPE
     except ValueError as e:
-        # print_in_color(f"DBG: Got invalid offer message - {e}. Keep trying...", color=COLORS.LIGHTYELLOW_EX)
+        print_in_color(f"DBG: Got invalid offer message - {e}. Keep trying...", color=COLORS.LIGHTYELLOW_EX)
         return False
 
 
@@ -210,7 +210,6 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
                 segments_received_count += 1
                 total_data_received += len(payload)
             except socket.timeout:
-#                 print_in_color("DBG: Got timeout message - finishing...", color=COLORS.LIGHTYELLOW_EX)
                 break
             except ValueError as e:
                 print_error(f"Corrupted Message: {e}")
@@ -242,10 +241,12 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
 
         end_time = datetime.now()
 
-#         print_in_color(f"DBG: Got a response of length {len(response)}", color=COLORS.LIGHTYELLOW_EX)
         duration_seconds = (end_time - start_time).total_seconds()
         return duration_seconds, len(response)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print_in_color("Client stopped by user", color=COLORS.RED)
