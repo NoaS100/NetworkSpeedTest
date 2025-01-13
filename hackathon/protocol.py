@@ -109,3 +109,10 @@ def build_header(message_type: int) -> bytes:
         return struct.pack(HEADER_FORMAT, MAGIC_COOKIE, message_type)
     except struct.error as e:
         raise ValueError(f"Failed to pack header with type '{message_type}': {e}")
+
+
+def parse_request_message(message: bytes) -> int:
+    message_type, body = parse_message(message)
+    if message_type != REQUEST_MESSAGE_TYPE:
+        raise ValueError(f"Got wrong message type, expected {REQUEST_MESSAGE_TYPE} and got {message_type}.")
+    return body[0]
