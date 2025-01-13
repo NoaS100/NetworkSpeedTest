@@ -50,13 +50,13 @@ def process_tcp_results(tcp_futures: list) -> None:
 
     :param tcp_futures: A list of futures representing TCP downloads.
     """
-    for future in concurrent.futures.as_completed(tcp_futures):
+    for index, future in enumerate(concurrent.futures.as_completed(tcp_futures)):
         try:
             duration, total_data_received = future.result()
             speed = total_data_received * BITS_IN_BYTE / duration
-            print(f"TCP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second")
+            print(f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second")
         except Exception as e:
-            print(f"An error occurred in a TCP task: {e}")
+            print(f"An error occurred in a TCP task #{index}: {e}")
 
 
 def process_udp_results(udp_futures: list) -> None:
@@ -65,13 +65,13 @@ def process_udp_results(udp_futures: list) -> None:
 
     :param udp_futures: A list of futures representing UDP downloads.
     """
-    for future in concurrent.futures.as_completed(udp_futures):
+    for index, future in enumerate(concurrent.futures.as_completed(udp_futures)):
         try:
             duration, total_data_received, segments_received_count, expected_segments_count = future.result()
             speed = total_data_received * BITS_IN_BYTE / duration
             percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
             print(
-                f"UDP transfer finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
+                f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%")
         except Exception as e:
             print(f"An error occurred in a UDP task: {e}")
 
