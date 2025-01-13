@@ -109,11 +109,11 @@ def listen_for_offer() -> Tuple[str, int, int]:
     """
     print_in_color("Client started, listening for offer requests...", color=COLORS.GREEN)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.bind(("", BROADCAST_PORT))
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:  # Open UDP Socket (IP, UDP)
+        sock.bind(("", BROADCAST_PORT))  # Listen to BROADCAST_PORT
 
         while True:
-            offer_message, (server_ip, server_port) = sock.recvfrom(1024)
+            offer_message, (server_ip, server_port) = sock.recvfrom(BUFFER_SIZE)
             if is_valid_offer(offer_message):
                 message_type, (udp_port, tcp_port) = parse_message(offer_message)
                 return server_ip, udp_port, tcp_port
@@ -149,7 +149,9 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind(("", 0))
         sock.settimeout(UDP_TIMEOUT)
+
         sock.sendto(request_message, (server_ip, server_port))
+
         segments_received_count = 0
         expected_segments_count = 1
         total_data_received = 0
@@ -165,6 +167,8 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
             except socket.timeout:
                 print_in_color("DBG: Got timeout message - finishing...", color=COLORS.LIGHTYELLOW_EX)
                 break
+            except ValueError as e:
+                print_error(f"Corrupted Message: {e}")
 
         end_time = datetime.now()
 
@@ -183,13 +187,13 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
     """
     request_message = build_message(REQUEST_MESSAGE_TYPE, download_size, payload=TCP_MESSAGE_TERMINATOR)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # Open TCP Socket (IP, TCP)
         sock.connect((server_ip, server_port))
         sock.sendall(request_message)
 
         start_time = datetime.now()
 
-        response = sock.recv(download_size)
+        response = sock.recv(download_size)  # could be problematic with larger files
 
         end_time = datetime.now()
 

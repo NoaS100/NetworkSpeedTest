@@ -24,18 +24,15 @@ def main() -> None:
 
     broadcast_thread = threading.Thread(
         target=broadcast_offer_messages,
-        kwargs=dict(udp_port=UDP_SERVER_PORT, tcp_port=TCP_SERVER_PORT),
-        daemon=True
+        kwargs=dict(udp_port=UDP_SERVER_PORT, tcp_port=TCP_SERVER_PORT)
     )
     tcp_thread = threading.Thread(
         target=start_tcp_server,
-        kwargs=dict(server_ip=ip_address, server_port=TCP_SERVER_PORT),
-        daemon=True
+        kwargs=dict(server_ip=ip_address, server_port=TCP_SERVER_PORT)
     )
     udp_thread = threading.Thread(
         target=start_udp_server,
-        kwargs=dict(server_ip=ip_address, server_port=UDP_SERVER_PORT),
-        daemon=True
+        kwargs=dict(server_ip=ip_address, server_port=UDP_SERVER_PORT)
     )
 
     tcp_thread.start()
@@ -54,7 +51,7 @@ def broadcast_offer_messages(udp_port: int, tcp_port: int) -> None:
     :param udp_port: The UDP port offered to clients.
     :param tcp_port: The TCP port offered to clients.
     """
-    offer_message: bytes = build_message(OFFER_MESSAGE_TYPE, udp_port, tcp_port)
+    offer_message = build_message(OFFER_MESSAGE_TYPE, udp_port, tcp_port)
     while True:
         send_broadcast_message(offer_message)
         time.sleep(BROADCAST_INTERVAL)
@@ -67,7 +64,7 @@ def send_broadcast_message(message: bytes) -> None:
     :param message: The message to be broadcasted.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)  # level, opt, value
         try:
             sock.sendto(message, BROADCAST_ADDR)
             print_in_color("DBG: Sent broadcast message...", color=COLORS.LIGHTYELLOW_EX)
@@ -84,7 +81,7 @@ def start_tcp_server(server_ip: str, server_port: int) -> None:
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((server_ip, server_port))
-        server_socket.listen(5)
+        server_socket.listen(5)  # The max amount of clients that can wait for the server to accept the connection
         print_in_color(f"DBG: Server listening on {server_ip}:{server_port}", color=COLORS.LIGHTYELLOW_EX)
 
         while True:
@@ -93,8 +90,7 @@ def start_tcp_server(server_ip: str, server_port: int) -> None:
                 print_in_color(f"DBG: Connection from {client_address}", color=COLORS.LIGHTYELLOW_EX)
                 threading.Thread(
                     target=process_tcp_client_request,
-                    args=(client_socket,),
-                    daemon=True
+                    args=(client_socket,)
                 ).start()
             except Exception as e:
                 print_error(f"Error in TCP server: {e}")
@@ -183,8 +179,7 @@ def start_udp_server(server_ip: str, server_port: int) -> None:
 
                 threading.Thread(
                     target=process_udp_client_request,
-                    args=(client_address, message),
-                    daemon=True
+                    args=(client_address, message)
                 ).start()
             except Exception as e:
                 print_error(f"Error in UDP server: {e}")

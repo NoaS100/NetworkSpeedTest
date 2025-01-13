@@ -1,8 +1,7 @@
 import struct
 from typing import Any, Tuple, Union
 
-# TODO: Ask about broadcast port.
-# TODO: Ask big/small indian.
+# TODO: Ask big/little indian.
 
 # Constants
 BROADCAST_PORT: int = 12345  # Port used for broadcasting
