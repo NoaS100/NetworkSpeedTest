@@ -57,7 +57,7 @@ def process_tcp_results(tcp_futures: list) -> None:
             duration, total_data_received = future.result()
             speed = total_data_received * BITS_IN_BYTE / duration
             print_in_color(
-                f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second",
+                f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {humanize_speed(speed)}",
                 color=COLORS.GREEN
             )
             all_speeds.append(speed)
@@ -69,8 +69,8 @@ def process_tcp_results(tcp_futures: list) -> None:
         min_speed = min(all_speeds)
         avg_speed = sum(all_speeds) / len(all_speeds)
         print_in_color(
-            f"TCP transfers summary:\n\tMax speed: {max_speed} bits/second\n\tMin speed: {min_speed} bits/second\n\t"
-            f"Average speed: {avg_speed} bits/second",
+            f"TCP transfers summary:\n\tMax speed: {humanize_speed(max_speed)}\n\tMin speed: {humanize_speed(min_speed)}\n\t"
+            f"Average speed: {humanize_speed(avg_speed)}",
             color=COLORS.CYAN
         )
     
@@ -90,7 +90,7 @@ def process_udp_results(udp_futures: list) -> None:
             speed = total_data_received * BITS_IN_BYTE / duration
             percentage_received = (segments_received_count / expected_segments_count) * 100 if expected_segments_count > 0 else 0
             print_in_color(
-                f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%",
+                f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {humanize_speed(speed)}, percentage of packets received: {percentage_received}%",
                 color=COLORS.GREEN
             )
 
@@ -105,8 +105,8 @@ def process_udp_results(udp_futures: list) -> None:
         avg_speed = sum(all_speeds) / len(all_speeds)
         avg_loss = 100 - (sum(total_percentage_received) / len(total_percentage_received) if total_percentage_received else 0)
         print_in_color(
-            f"UDP transfers summary:\n\tMax speed: {max_speed} bits/second\n\tMin speed: {min_speed} bits/second\n\t"
-            f"Average speed: {avg_speed} bits/second\n\tAverage packet loss: {avg_loss}%",
+            f"UDP transfers summary:\n\tMax speed: {humanize_speed(max_speed)}\n\tMin speed: {humanize_speed(min_speed)}\n\t"
+            f"Average speed: {humanize_speed(avg_speed)}\n\tAverage packet loss: {avg_loss}%",
             color=COLORS.CYAN
         )
 
@@ -128,6 +128,22 @@ def get_positive_integer(message: str, include_zero: bool = True) -> int:
                 return value
         except ValueError:
             print_error("Invalid input. Please enter a numeric value.")
+
+
+def humanize_speed(bits_per_second: float) -> str:
+    """
+    Converts a speed in bits/second into a more human-readable format.
+
+    :param bits_per_second: The speed in bits/second.
+    :return: A string representing the human-readable speed.
+    """
+    units = ["bits/s", "Kib/s", "Mib/s", "Gib/s", "Tib/s", "Pib/s"]
+    scale = 1024  # Using base 2 (Kibi)
+    for unit in units:
+        if bits_per_second < scale:
+            return f"{bits_per_second:.2f} {unit}"
+        bits_per_second /= scale
+    return f"{bits_per_second:.2f} {units[-1]}"
 
 
 def listen_for_offer() -> Tuple[str, int, int]:
