@@ -51,6 +51,7 @@ def process_tcp_results(tcp_futures: list) -> None:
 
     :param tcp_futures: A list of futures representing TCP downloads.
     """
+    all_speeds = []
     for index, future in enumerate(concurrent.futures.as_completed(tcp_futures)):
         try:
             duration, total_data_received = future.result()
@@ -59,9 +60,21 @@ def process_tcp_results(tcp_futures: list) -> None:
                 f"TCP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second",
                 color=COLORS.GREEN
             )
+            all_speeds.append(speed)
         except Exception as e:
             print_error(f"An error occurred in a TCP task #{index}: {e}")
-
+    
+    if all_speeds:
+        max_speed = max(all_speeds)
+        min_speed = min(all_speeds)
+        avg_speed = sum(all_speeds) / len(all_speeds)
+        print_in_color(
+            f"TCP transfers summary:\n\tMax speed: {max_speed} bits/second\n\tMin speed: {min_speed} bits/second\n\t"
+            f"Average speed: {avg_speed} bits/second",
+            color=COLORS.CYAN
+        )
+    
+    
 
 def process_udp_results(udp_futures: list) -> None:
     """
@@ -69,6 +82,8 @@ def process_udp_results(udp_futures: list) -> None:
 
     :param udp_futures: A list of futures representing UDP downloads.
     """
+    all_speeds = []
+    total_percentage_received = []
     for index, future in enumerate(concurrent.futures.as_completed(udp_futures)):
         try:
             duration, total_data_received, segments_received_count, expected_segments_count = future.result()
@@ -78,8 +93,22 @@ def process_udp_results(udp_futures: list) -> None:
                 f"UDP transfer #{index + 1} finished, total time: {duration} seconds, total speed: {speed} bits/second, percentage of packets received: {percentage_received}%",
                 color=COLORS.GREEN
             )
+
+            all_speeds.append(speed)
+            total_percentage_received.append(percentage_received)
         except Exception as e:
             print_error(f"An error occurred in a UDP task: {e}")
+
+    if all_speeds:
+        max_speed = max(all_speeds)
+        min_speed = min(all_speeds)
+        avg_speed = sum(all_speeds) / len(all_speeds)
+        avg_loss = 100 - (sum(total_percentage_received) / len(total_percentage_received) if total_percentage_received else 0)
+        print_in_color(
+            f"UDP transfers summary:\n\tMax speed: {max_speed} bits/second\n\tMin speed: {min_speed} bits/second\n\t"
+            f"Average speed: {avg_speed} bits/second\n\tAverage packet loss: {avg_loss}%",
+            color=COLORS.CYAN
+        )
 
 
 def get_positive_integer(message: str, include_zero: bool = True) -> int:
@@ -130,7 +159,7 @@ def is_valid_offer(offer_message: bytes) -> bool:
         message_type, *_ = parse_message(offer_message)
         return message_type == OFFER_MESSAGE_TYPE
     except ValueError as e:
-        print_in_color(f"DBG: Got invalid offer message - {e}. Keep trying...", color=COLORS.LIGHTYELLOW_EX)
+        # print_in_color(f"DBG: Got invalid offer message - {e}. Keep trying...", color=COLORS.LIGHTYELLOW_EX)
         return False
 
 
@@ -165,7 +194,7 @@ def perform_udp_download(server_ip: str, server_port: int, download_size: int) -
                 segments_received_count += 1
                 total_data_received += len(payload)
             except socket.timeout:
-                print_in_color("DBG: Got timeout message - finishing...", color=COLORS.LIGHTYELLOW_EX)
+#                 print_in_color("DBG: Got timeout message - finishing...", color=COLORS.LIGHTYELLOW_EX)
                 break
             except ValueError as e:
                 print_error(f"Corrupted Message: {e}")
@@ -197,7 +226,7 @@ def perform_tcp_download(server_ip: str, server_port: int, download_size: int) -
 
         end_time = datetime.now()
 
-        print_in_color(f"DBG: Got a response of length {len(response)}", color=COLORS.LIGHTYELLOW_EX)
+#         print_in_color(f"DBG: Got a response of length {len(response)}", color=COLORS.LIGHTYELLOW_EX)
         duration_seconds = (end_time - start_time).total_seconds()
         return duration_seconds, len(response)
 
