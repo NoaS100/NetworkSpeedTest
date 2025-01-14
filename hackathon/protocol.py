@@ -1,12 +1,16 @@
 import struct
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, Dict
 
 # TODO: Ask big/little indian.
 
 # Constants
 BROADCAST_PORT: int = 12345  # Port used for broadcasting
+TCP_MESSAGE_TERMINATOR = "\n".encode()  # Terminator for TCP request messages
+BUFFER_SIZE = 1024  # Socket buffer size
+
+# Header format
 MAGIC_COOKIE: bytes = 0xabcddcba.to_bytes(4, byteorder="big")  # Magic cookie for protocol validation
-HEADER_FORMAT: str = "4sB"  # Protocol (4 bytes) + Message Type (1 byte)
+HEADER_FORMAT: str = "4sB"  # Protocol (4 bytes) + Message Type (1 byte) - struct format
 HEADER_SIZE: int = struct.calcsize(HEADER_FORMAT)  # Size of the header in bytes
 
 # Message types
@@ -15,7 +19,7 @@ REQUEST_MESSAGE_TYPE: int = 0x3
 PAYLOAD_MESSAGE_TYPE: int = 0x4
 
 # Message formats
-MESSAGES_FORMATS: dict[int, str] = {
+MESSAGES_FORMATS: Dict[int, str] = {
     OFFER_MESSAGE_TYPE: ">HH",
     REQUEST_MESSAGE_TYPE: ">Q",
     PAYLOAD_MESSAGE_TYPE: ">QQ",
@@ -40,7 +44,7 @@ def parse_message(data: bytes) -> Tuple[int, Union[Tuple[Any, ...], None]]:
             raise ValueError("Data too short to contain a valid message body.")
 
         try:
-            parsed_body = struct.unpack(body_format, body_data[:body_size])
+            parsed_body = struct.unpack(body_format, body_data[:body_size])  # returns Tuple by the struct format
         except struct.error as e:
             raise ValueError(f"Failed to unpack message body for type {message_type}: {e}")
 

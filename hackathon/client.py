@@ -4,11 +4,10 @@ from datetime import datetime, timedelta
 from typing import Tuple
 
 from hackathon.color_printing import print_in_color, COLORS, print_error
-from hackathon.protocol import BROADCAST_PORT, parse_message, OFFER_MESSAGE_TYPE, build_message, REQUEST_MESSAGE_TYPE
+from hackathon.protocol import BROADCAST_PORT, parse_message, OFFER_MESSAGE_TYPE, build_message, REQUEST_MESSAGE_TYPE, \
+    TCP_MESSAGE_TERMINATOR, BUFFER_SIZE
 
 UDP_TIMEOUT = 1  # Timeout used for finishing udp download
-BUFFER_SIZE = 1024  # Socket buffer size for receiving data
-TCP_MESSAGE_TERMINATOR = "\n".encode()  # Terminator for TCP request messages
 BITS_IN_BYTE = 8  # Conversion factor for bytes to bits
 
 

@@ -1,3 +1,4 @@
+import math
 import socket
 import threading
 import time
@@ -5,7 +6,7 @@ from typing import Tuple
 
 from hackathon.color_printing import print_in_color, COLORS, print_error
 from hackathon.protocol import BROADCAST_PORT, build_message, OFFER_MESSAGE_TYPE, PAYLOAD_MESSAGE_TYPE, \
-    parse_request_message
+    parse_request_message, BUFFER_SIZE, TCP_MESSAGE_TERMINATOR
 
 DEFAULT_UDP_PAYLOAD_SIZE: int = 512  # Maximum size for UDP payloads
 BROADCAST_INTERVAL: int = 1  # Interval in seconds for broadcasting messages
@@ -89,14 +90,14 @@ def start_tcp_server(server_ip: str, server_port: int) -> None:
                 client_socket, client_address = server_socket.accept()
                 print_in_color(f"DBG: Connection from {client_address}", color=COLORS.LIGHTYELLOW_EX)
                 threading.Thread(
-                    target=process_tcp_client_request,
+                    target=handle_tcp_client_request,
                     args=(client_socket,)
                 ).start()
             except Exception as e:
                 print_error(f"Error in TCP server: {e}")
 
 
-def process_tcp_client_request(client_socket: socket.socket) -> None:
+def handle_tcp_client_request(client_socket: socket.socket) -> None:
     """
     Handles a single TCP client.
 
@@ -104,21 +105,45 @@ def process_tcp_client_request(client_socket: socket.socket) -> None:
     """
     with client_socket:
         try:
-            message: bytes = client_socket.recv(1024)
-            if message[-1] != ord("\n"):
+            message: bytes = client_socket.recv(BUFFER_SIZE)
+            if message[-1] != ord(TCP_MESSAGE_TERMINATOR):
                 raise ValueError("Message is too large or improperly terminated with '\\n'.")
 
             file_size = parse_request_message(message)
             print_in_color(f"DBG: Received filesize of {file_size} bytes", color=COLORS.LIGHTYELLOW_EX)
 
-            response: str = "a" * file_size
-            client_socket.sendall(response.encode())
+            response: bytes = b"a" * file_size
+            client_socket.sendall(response)
             print_in_color(f"DBG: Sent response of length: {len(response)}", color=COLORS.LIGHTYELLOW_EX)
         except Exception as e:
             print_error(f"Error processing TCP client request: {e}")
 
 
-def process_udp_client_request(client_address: Tuple[str, int], message: bytes) -> None:
+def start_udp_server(server_ip: str, server_port: int) -> None:
+    """
+    Starts a UDP server to handle client requests.
+
+    :param server_ip: The host address to bind the server.
+    :param server_port: The UDP port to listen on.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+        udp_socket.bind((server_ip, server_port))
+        print_in_color(f"DBG: UDP server listening on {server_ip}:{server_port}", color=COLORS.LIGHTYELLOW_EX)
+
+        while True:
+            try:
+                message, client_address = udp_socket.recvfrom(BUFFER_SIZE)
+                print_in_color(f"DBG: Received message from {client_address}: {message}", color=COLORS.LIGHTYELLOW_EX)
+
+                threading.Thread(
+                    target=handle_udp_client_request,
+                    args=(client_address, message)
+                ).start()
+            except Exception as e:
+                print_error(f"Error in UDP server: {e}")
+
+
+def handle_udp_client_request(client_address: Tuple[str, int], message: bytes) -> None:
     """
     Handles a single UDP client in a separate thread.
 
@@ -142,11 +167,11 @@ def send_udp_file_segments(target_address: Tuple[str, int], file_size: int, payl
     :param payload_size: The size of each UDP payload.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-        total_segments: int = (file_size + payload_size - 1) // payload_size
+        total_segments: int = math.ceil(file_size / payload_size)
 
         for segment_number in range(total_segments):
-            start_byte = segment_number * payload_size
-            remaining_bytes = file_size - start_byte
+            bytes_sent = segment_number * payload_size
+            remaining_bytes = file_size - bytes_sent
             current_payload_size = min(payload_size, remaining_bytes)
             payload_data: bytes = b'a' * current_payload_size
 
@@ -159,30 +184,6 @@ def send_udp_file_segments(target_address: Tuple[str, int], file_size: int, payl
 
             udp_socket.sendto(payload_message, target_address)
             print_in_color(f"DBG: Sent segment {segment_number + 1}/{total_segments}, size: {current_payload_size} bytes", color=COLORS.LIGHTYELLOW_EX)
-
-
-def start_udp_server(server_ip: str, server_port: int) -> None:
-    """
-    Starts a UDP server to handle client requests.
-
-    :param server_ip: The host address to bind the server.
-    :param server_port: The UDP port to listen on.
-    """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-        udp_socket.bind((server_ip, server_port))
-        print_in_color(f"DBG: UDP server listening on {server_ip}:{server_port}", color=COLORS.LIGHTYELLOW_EX)
-
-        while True:
-            try:
-                message, client_address = udp_socket.recvfrom(1024)
-                print_in_color(f"DBG: Received message from {client_address}: {message}", color=COLORS.LIGHTYELLOW_EX)
-
-                threading.Thread(
-                    target=process_udp_client_request,
-                    args=(client_address, message)
-                ).start()
-            except Exception as e:
-                print_error(f"Error in UDP server: {e}")
 
 
 if __name__ == '__main__':
